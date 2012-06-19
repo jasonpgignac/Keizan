@@ -1,0 +1,5 @@
+adapter: postgresql
+database: keizan
+username: postgres
+password: Honda22!
+host: 10.127.36.160
