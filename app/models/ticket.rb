@@ -32,9 +32,9 @@ class Ticket < ActiveRecord::Base
     end
   end
   
-  def self.update
-    newest_date = Event.maximum(:created_at)
-    newest_date = DateTime.now - 10.minutes unless DateTime.now - 5.minutes > newest_date
+  def self.update(newest_date = nil)
+    newest_date ||= Event.maximum(:created_at)
+    newest_date = DateTime.now - 5.minutes unless DateTime.now - 5.minutes > newest_date
     
     result = CLIENT.connection.send('get',"exports/tickets.json?start_time=" + newest_date.to_i.to_s)
     records = result.body["results"]
@@ -54,10 +54,11 @@ class Ticket < ActiveRecord::Base
     end
   end
   
-  def self.create_from_zendesk_object(zt)
+  def self.create_from_zendesk_object(zt, notify=true)
     ticket = Ticket.find(zt.id) if Ticket.exists?(zt.id)
     ticket ||= self.new
-    
+    is_new = ticket.id.nil?
+ 
     # Directly Translated Fields
     attrs = [:id, :ticket_type, :subject, :priority, :status, :requestor_id, :submitter_id, :assignee_id, 
       :organization_id, :group_id, :forum_topic_id, :problem_id, :has_incidents, :due_at, :via, :created_at, :updated_at]
@@ -86,7 +87,41 @@ class Ticket < ActiveRecord::Base
     User.create_from_zendesk_object(CLIENT.users.find(ticket.assignee_id)) if ticket.assignee_id && !User.exists?(ticket.assignee_id)
     Organization.create_from_zendesk_object(CLIENT.organizations.find(ticket.organization_id)) if ticket.organization_id && !Organization.exists?(ticket.organization_id)
     Group.create_from_zendesk_object(CLIENT.groups.find(ticket.group_id)) if ticket.group_id && !Group.exists?(ticket.group_id)
+    ticket.notify_on_major_accounts if is_new && notify
 
     return ticket
   end
+
+  def ddi
+    return nil unless organization
+    return organization.name.sub(/^D/, "")
+  end
+
+  def notify_on_major_accounts
+    w = WatchAccount.find_by_number(self.ddi)
+    if w
+      Pony.mail(
+        :to => [ 
+          "Alex.brandt@rackspace.com",
+          "Christine.cloud@rackspace.com",
+	  "Hart.hoover@rackspace.com",
+	  "jchoe@rackspace.com",
+	  "Jennifer.boles@rackspace.com",
+	  "Jordan.rinke@rackspace.com",
+	  "Justin.phelps@rackspace.com",
+	  "kgoolsby@rackspace.com",
+	  "Nicholas.icenogle@rackspace.com",
+	  "chapa@rackspace.com",
+	  "Sherman.donegan@rackspace.com",
+	  "Srinivas.maddhi@rackspace.com",
+	  "Stacey.ford@rackspace.com",
+	  "Wayne.walls@rackspace.com",
+	  "odus.wittenburg@rackspace.com"
+	],
+        :subject => "[MARQUEE TICKETS] New Ticket for Account ##{self.ddi}",
+        :body => "There has been a new ticket for the account ##{self.ddi} (#{w.name})\n\n\nDate: #{self.created_at}\nTicket Number: #{self.id}\nTicket Subject: #{self.subject}\nURL: https://rackspacecloud.zendesk.com/tickets/#{self.id}"
+      )
+    end
+  end
+
 end

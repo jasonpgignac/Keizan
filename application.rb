@@ -3,6 +3,14 @@ require "bundler/setup"
 require 'yaml'
 require 'active_record'
 require 'zendesk'
+require 'pony'
+require 'pony'
+require 'pony'
+require 'pony'
+require 'pony'
+require 'pony'
+require 'pony'
+require 'pony'
 
 require './app/models/event'
 require './app/models/comment'
@@ -13,6 +21,7 @@ require './app/models/tag'
 require './app/models/group'
 require './app/models/organization'
 require './app/models/user'
+require './app/models/watch_account'
 
 # Connect to the Database
 db_config = YAML::load(File.open(File.join(File.dirname(__FILE__),'config','database.yml')))
