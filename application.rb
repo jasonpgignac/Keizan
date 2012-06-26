@@ -16,6 +16,7 @@ require './app/models/group'
 require './app/models/organization'
 require './app/models/user'
 require './app/models/watch_account'
+require './app/models/watch_account_type'
 
 require './app/jobs/ticket_updater'
 

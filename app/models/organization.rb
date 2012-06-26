@@ -14,10 +14,11 @@ class Organization < ActiveRecord::Base
   def self.create_from_zendesk_object(zo)
     o = Organization.find(zo.id) if Organization.exists?(zo.id)
     o ||= Organization.new
-    attrs = [:id, :name, :created_at, :updated_at, :details, :notes, :group_id, :shared_tickets, :shared_comments]
+    attrs = [:id, :created_at, :updated_at, :details, :notes, :group_id, :shared_tickets, :shared_comments]
     attrs.each do |attr|
       o.send( (attr.to_s + "="), (zo.send attr))
     end
+    o.name = zo.name.sub(/^D/,"")
     o.save!
     return o
   end

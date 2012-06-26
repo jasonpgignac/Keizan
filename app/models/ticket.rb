@@ -101,37 +101,23 @@ class Ticket < ActiveRecord::Base
   end
 
   def notify_on_major_accounts
-    w = WatchAccount.find_by_number(self.ddi)
-    if w
-      Pony.mail(
-        :to => [ 
-          "Alex.brandt@rackspace.com",
-          "Christine.cloud@rackspace.com",
-	  "Hart.hoover@rackspace.com",
-	  "jchoe@rackspace.com",
-	  "Jennifer.boles@rackspace.com",
-	  "Jordan.rinke@rackspace.com",
-	  "Justin.phelps@rackspace.com",
-	  "kgoolsby@rackspace.com",
-	  "Nicholas.icenogle@rackspace.com",
-	  "chapa@rackspace.com",
-	  "Sherman.donegan@rackspace.com",
-	  "Srinivas.maddhi@rackspace.com",
-	  "Stacey.ford@rackspace.com",
-	  "Wayne.walls@rackspace.com",
-	  "odus.wittenburg@rackspace.com"
-	],
-        :subject => "[MARQUEE TICKETS] New Ticket for Account ##{self.ddi}",
-        :body => "There has been a new ticket for the account ##{self.ddi} (#{w.name})\n\n\nDate: #{self.created_at}\nTicket Number: #{self.id}\nTicket Subject: #{self.subject}\nURL: https://rackspacecloud.zendesk.com/tickets/#{self.id}"
+    watch_accounts = WatchAccount.find_all_by_number(self.ddi)
+    unless watch_accounts.empty
+      watch_accounts.each do |w|
+        if w.notification_emails {
+          Pony.mail(
+            to:       w.notification_emails, 
+            subject:  "[#{w.watch_account_type.name.upcase}] New Ticket for Account ##{self.ddi}",
+            body:     "There has been a new ticket for the account ##{self.ddi} (#{w.name})\n\n\nDate: #{self.created_at}\nTicket Number: #{self.id}\nTicket Subject: #{self.subject}\nURL: https://rackspacecloud.zendesk.com/tickets/#{self.id}"
       )
       zt = CLIENT.tickets.find(self.id)
-      unless zt.tags.include? "SMB_Marquee"
-	tags = zt.tags
-  	tags << "SMB_Marquee"
+      if w.default_tags
+        tags = zt.tags
+  	    tags << w.default_tags
         zt.tags = tags
         zt.save
-	self.tags << (Tag.find_by_name("SMB_Marquee") || Tag.create(:name => "SMB_Marquee"))
-	self.save
+	      w.default_tags.each { |t| self.tags << (Tag.find_by_name(t) || Tag.create(:name => t))
+	      self.save
       end
     end
   end
