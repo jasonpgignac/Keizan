@@ -27,7 +27,7 @@ class Ticket < ActiveRecord::Base
     tickets = CLIENT.tickets.page(starting_page)
     
     until tickets.empty? do
-      tickets.each { |ticket| t = Ticket.create_from_zendesk_object(ticket) }
+      tickets.each { |ticket| t = Ticket.create_from_zendesk_object(ticket, false) }
       tickets = CLIENT.tickets.page(CLIENT.tickets.next)
     end
   end
