@@ -60,10 +60,11 @@ class Ticket < ActiveRecord::Base
  
     # Directly Translated Fields
     attrs = [:id, :ticket_type, :subject, :priority, :status, :requestor_id, :submitter_id, :assignee_id, 
-      :organization_id, :group_id, :forum_topic_id, :problem_id, :has_incidents, :due_at, :via, :created_at, :updated_at]
+      :organization_id, :group_id, :forum_topic_id, :problem_id, :has_incidents, :due_at, :created_at, :updated_at]
     attrs.each do |attr|
       ticket.update_attribute(attr, (zt.send attr))
     end
+    ticket.via = zt.via ? zt.via.channel : nil
     
     # Custom Fields
     zt.fields.each do |field_data|
@@ -120,6 +121,15 @@ class Ticket < ActiveRecord::Base
         :subject => "[MARQUEE TICKETS] New Ticket for Account ##{self.ddi}",
         :body => "There has been a new ticket for the account ##{self.ddi} (#{w.name})\n\n\nDate: #{self.created_at}\nTicket Number: #{self.id}\nTicket Subject: #{self.subject}\nURL: https://rackspacecloud.zendesk.com/tickets/#{self.id}"
       )
+      zt = CLIENT.tickets.find(self.id)
+      unless zt.tags.include? "SMB_Marquee"
+	tags = zt.tags
+  	tags << "SMB_Marquee"
+        zt.tags = tags
+        zt.save
+	self.tags << (Tag.find_by_name("SMB_Marquee") || Tag.create(:name => "SMB_Marquee"))
+	self.save
+      end
     end
   end
 
