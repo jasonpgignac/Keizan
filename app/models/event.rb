@@ -49,7 +49,7 @@ class Event < ActiveRecord::Base
         e.comment_id = comment.id
         e.public = ze.public
       when "Create", "Change"
-        e.value_change_id = ValueChange.create_from_zendesk_objects(objects)
+        e.value_change_id = ValueChange.create_from_zendesk_objects(objects).id
     end
     e.body = BODY_FORMATTERS[ze.type.to_sym].call(ze)
     e.save!
