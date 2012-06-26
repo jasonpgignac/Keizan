@@ -5,4 +5,5 @@ gem 'activerecord', :require => "active_record"
 gem 'pg'
 gem 'rake'
 gem 'pony'
+gem 'resque'
 

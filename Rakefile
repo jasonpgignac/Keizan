@@ -1,5 +1,7 @@
 require 'bundler'
 Bundler.require
+require './application'
+require 'resque/tasks'
 
 desc "Migrate the database through scripts in db/migrate."
 task :migrate do

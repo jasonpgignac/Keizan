@@ -41,8 +41,7 @@ class Ticket < ActiveRecord::Base
     until records.empty?
       records.map do |res| 
         unless res.nil?
-          zt = CLIENT.tickets.find(res["id"])
-          ticket = create_from_zendesk_object(zt)
+          Resque.enqueue(TicketUpdater, res["id"])
         end
       end
       begin
