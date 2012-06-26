@@ -60,10 +60,13 @@ class Ticket < ActiveRecord::Base
  
     # Directly Translated Fields
     attrs = [:id, :ticket_type, :subject, :priority, :status, :requestor_id, :submitter_id, :assignee_id, 
-      :organization_id, :group_id, :forum_topic_id, :problem_id, :has_incidents, :due_at, :created_at, :updated_at]
+      :organization_id, :group_id, :forum_topic_id, :problem_id, :has_incidents]
     attrs.each do |attr|
       ticket.update_attribute(attr, (zt.send attr))
     end
+    ticket.due_at = zt.due_at
+    ticket.created_at = zt.created_at
+    ticket.updated_at = zt.updated_at
     ticket.via = zt.via ? zt.via.channel : nil
     
     # Custom Fields
