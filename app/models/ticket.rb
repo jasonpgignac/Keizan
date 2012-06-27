@@ -102,22 +102,24 @@ class Ticket < ActiveRecord::Base
 
   def notify_on_major_accounts
     watch_accounts = WatchAccount.find_all_by_number(self.ddi)
-    unless watch_accounts.empty
+    unless watch_accounts.empty?
       watch_accounts.each do |w|
-        if w.notification_emails {
+        if w.watch_account_type.notification_emails 
           Pony.mail(
-            to:       w.notification_emails, 
+            to:       w.watch_account_type.notification_emails, 
             subject:  "[#{w.watch_account_type.name.upcase}] New Ticket for Account ##{self.ddi}",
             body:     "There has been a new ticket for the account ##{self.ddi} (#{w.name})\n\n\nDate: #{self.created_at}\nTicket Number: #{self.id}\nTicket Subject: #{self.subject}\nURL: https://rackspacecloud.zendesk.com/tickets/#{self.id}"
-      )
-      zt = CLIENT.tickets.find(self.id)
-      if w.default_tags
-        tags = zt.tags
-  	    tags << w.default_tags
-        zt.tags = tags
-        zt.save
-	      w.default_tags.each { |t| self.tags << (Tag.find_by_name(t) || Tag.create(:name => t))
-	      self.save
+	  )
+	end
+        zt = CLIENT.tickets.find(self.id)
+        if w.watch_account_type.default_tags
+          tags = zt.tags
+  	  tags = tags + w.watch_account_type.default_tags
+          zt.tags = tags
+          zt.save
+	  w.watch_account_type.default_tags.each { |t| self.tags << (Tag.find_by_name(t.downcase) || Tag.create(:name => t.downcase)) unless self.tags.include? t.downcase }
+	  self.save
+        end
       end
     end
   end
