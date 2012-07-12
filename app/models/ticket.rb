@@ -15,12 +15,13 @@ class Ticket < ActiveRecord::Base
     115030 => :ticket_category,
     115031 => :technology,
     115032 => :product_details,
-    
+    115033 => :email_cc, 
     115034 => :internal_account_information,
     115035 => :internal_queues,
     
     438039 => :location,
     500089 => :notify_customer,
+    20782023 => :riid
   }
   
   def self.update(newest_date = nil)
@@ -80,7 +81,6 @@ class Ticket < ActiveRecord::Base
     # Custom Fields
     data["fields"].each do |field_data|
       ticket.update_attribute(CUSTOM_FIELD_MAPS[field_data["id"].to_i], field_data["value"]) if CUSTOM_FIELD_MAPS[field_data["id"].to_i]
-    end
     
     # Tags
     data["tags"].each { |ztag| 
