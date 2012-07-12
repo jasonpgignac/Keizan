@@ -34,8 +34,8 @@ class Ticket < ActiveRecord::Base
       records.map do |res| 
         unless res.nil?
           raw_data = res.to_json
-          REDIS.set("keizan__cache__ticket__#{id}",raw_data)
-          REDIS.set("keizan__cache__ticket__#{id}__audits",nil)
+          REDIS.set("keizan__cache__ticket__#{res["id"]}",raw_data)
+          REDIS.set("keizan__cache__ticket__#{res["id"]}__audits",nil)
           Resque.enqueue(TicketUpdater, res["id"])
         end
       end
