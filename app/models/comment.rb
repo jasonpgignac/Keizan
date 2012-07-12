@@ -8,12 +8,12 @@ class Comment < ActiveRecord::Base
     za = objects[:audit]
     zt = objects[:ticket]
     c = Comment.new
-    c.author_id = za.author_id
-    c.text = ze.body
-    c.public = ze.public
-    c.ticket_id = zt.id
-    c.created_at = za.created_at
-    c.modified_at = za.created_at
+    c.author_id = za["author_id"]
+    c.text = ze["body"]
+    c.public = ze["public"]
+    c.ticket_id = zt["id"]
+    c.created_at = za["created_at"]
+    c.modified_at = za["created_at"]
     c.save!
     return c
   end

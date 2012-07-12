@@ -23,15 +23,6 @@ class Ticket < ActiveRecord::Base
     500089 => :notify_customer,
   }
   
-  def self.reload_all(starting_page=1)
-    tickets = CLIENT.tickets.page(starting_page)
-    
-    until tickets.empty? do
-      tickets.each { |ticket| t = Ticket.create_from_zendesk_object(ticket, false) }
-      tickets = CLIENT.tickets.page(CLIENT.tickets.next)
-    end
-  end
-  
   def self.update(newest_date = nil)
     newest_date ||= Event.maximum(:created_at)
     newest_date = DateTime.now - 5.minutes unless DateTime.now - 5.minutes > newest_date
@@ -41,6 +32,9 @@ class Ticket < ActiveRecord::Base
     until records.empty?
       records.map do |res| 
         unless res.nil?
+          raw_data = res.to_json
+          REDIS.set("keizan__cache__ticket__#{id}",raw_data)
+          REDIS.set("keizan__cache__ticket__#{id}__audits",nil)
           Resque.enqueue(TicketUpdater, res["id"])
         end
       end
@@ -53,36 +47,54 @@ class Ticket < ActiveRecord::Base
     end
   end
   
-  def self.create_from_zendesk_object(zt, notify=true)
-    ticket = Ticket.find(zt.id) if Ticket.exists?(zt.id)
+  def self.create_from_zendesk_id(id, notify=true)
+    ticket = Ticket.find(id) if Ticket.exists?(id)
     ticket ||= self.new
     is_new = ticket.id.nil?
  
+    data = cached_ticket_data_for(id)
     # Directly Translated Fields
-    attrs = [:id, :ticket_type, :subject, :priority, :status, :requestor_id, :submitter_id, :assignee_id, 
-      :organization_id, :group_id, :forum_topic_id, :problem_id, :has_incidents]
+    attrs = [
+      :id, 
+      :ticket_type, 
+      :subject, 
+      :priority, 
+      :status, 
+      :requestor_id, 
+      :submitter_id, 
+      :assignee_id, 
+      :organization_id, 
+      :group_id, 
+      :forum_topic_id, 
+      :problem_id, 
+      :has_incidents
+    ]
     attrs.each do |attr|
-      ticket.update_attribute(attr, (zt.send attr))
+      ticket.update_attribute(attr, (data[attr.to_s]))
     end
-    ticket.due_at = zt.due_at
-    ticket.created_at = zt.created_at
-    ticket.updated_at = zt.updated_at
-    ticket.via = zt.via ? zt.via.channel : nil
+    ticket.due_at = data["due_at"]
+    ticket.created_at = data["created_at"]
+    ticket.updated_at = data["updated_at"]
+    ticket.via = data["via"] ? data["via"]["channel"] : nil
     
     # Custom Fields
-    zt.fields.each do |field_data|
+    data["fields"].each do |field_data|
       ticket.update_attribute(CUSTOM_FIELD_MAPS[field_data["id"].to_i], field_data["value"]) if CUSTOM_FIELD_MAPS[field_data["id"].to_i]
     end
     
     # Tags
-    zt.tags.each { |ztag| ticket.tags << (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
+    data["tags"].each { |ztag| 
+      tags = ticket.tags
+      tags << (Tag.find_by_name(ztag) || Tag.create(:name => ztag))
+      ticket.tags = tags
+    }
   
     ticket.save!
     
     # Events
     #zt.audits.each { |a| debugger; a.events.each { |e| Event.create_from_zendesk_objects(event: e, audit: a, ticket: ticket) } }
     audits = {}
-    zt.audits.each { |a| a.events.each { |e| audits[a] ||= []; audits[a] << e}}
+    ticket.cached_audits.each { |a| a["events"].each { |e| audits[a] ||= []; audits[a] << e}}
     audits.each { |a,events| events.each { |e| Event.create_from_zendesk_objects(event: e, audit: a, ticket: ticket)}}
     # Uncached Associated Objects
     User.create_from_zendesk_object(CLIENT.users.find(ticket.requestor_id)) if ticket.requestor_id && !User.exists?(ticket.requestor_id)
@@ -92,6 +104,8 @@ class Ticket < ActiveRecord::Base
     Group.create_from_zendesk_object(CLIENT.groups.find(ticket.group_id)) if ticket.group_id && !Group.exists?(ticket.group_id)
     ticket.notify_on_major_accounts if is_new && notify
 
+    assign_account_manager
+    
     return ticket
   end
 
@@ -110,18 +124,61 @@ class Ticket < ActiveRecord::Base
             subject:  "[#{w.watch_account_type.name.upcase}] New Ticket for Account ##{self.ddi}",
             body:     "There has been a new ticket for the account ##{self.ddi} (#{w.name})\n\n\nDate: #{self.created_at}\nTicket Number: #{self.id}\nTicket Subject: #{self.subject}\nURL: https://rackspacecloud.zendesk.com/tickets/#{self.id}"
 	  )
-	end
-        zt = CLIENT.tickets.find(self.id)
-        if w.watch_account_type.default_tags
+	      end
+	      tag_array = tags.map { |t| t.name }
+	      default_tags = w.watch_account_type.default_tags
+        if (default_tags & tag_array) != default_tags
+          zt = CLIENT.tickets.find(self.id)
           tags = zt.tags
-  	  tags = tags + w.watch_account_type.default_tags
+  	      tags = tags + default_tags
           zt.tags = tags
           zt.save
-	  w.watch_account_type.default_tags.each { |t| self.tags << (Tag.find_by_name(t.downcase) || Tag.create(:name => t.downcase)) unless self.tags.include? t.downcase }
-	  self.save
+	        default_tags.each { |t| 
+  	        self.tags << (Tag.find_by_name(t.downcase) || Tag.create(:name => t.downcase)) unless self.tags.include? t.downcase 
+  	      }
+	        self.save
         end
       end
     end
   end
 
+  def assign_account_manager
+    am_tags = ["test_user","other_test_user","last_test_user"]
+    assigned_tags = am_tags + ["smb_marquee","enterprise_marquee"]
+    redis = Redis.new
+    
+    unless redis.get("next_am_index")
+      redis.set("next_am_index",0)
+    end
+    
+    next_am_index = redis.get("next_am_index").to_i
+    
+    if self.tags.map { |tag| tag.name }.include?("managed_service")
+      if (self.tags.map { |tag| tag.name } & assigned_tags).empty?
+        wat = WatchAccountType.where(name: am_tags[next_am_index]).first
+        wat ||= WatchAccountType.create(name: am_tags[next_am_index], default_tags: [am_tags[next_am_index]])
+        wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
+        self.notify_on_major_accounts()
+        # assign to new 
+      end
+    end
+  end
+  
+  def self.cached_ticket_data_for(id)
+    raw_data = REDIS.get("keizan__cache__ticket__#{id}")
+    unless raw_data
+      raw_data = CLIENT.tickets.find(id).attributes["ticket"].to_json
+      REDIS.set("keizan__cache__ticket__#{id}",raw_data)
+      REDIS.set("keizan__cache__ticket__#{id}__audits",nil)
+    end
+    return JSON.parse(raw_data)
+  end
+  def cached_audits
+    raw_data = REDIS.get("keizan__cache__ticket__#{id}__audits")
+    unless raw_data
+      raw_data = CLIENT.connection.send('get',"tickets/#{id}/audits.json").body["audits"].to_json
+      REDIS.set("keizan__cache__ticket__#{id}__audits",raw_data)
+    end
+    return JSON.parse(raw_data)
+  end
 end

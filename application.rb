@@ -35,6 +35,4 @@ CLIENT = Zendesk.configure do |config|
   config.retry = true
   config.log = true
 end
-
-
-
+REDIS = Redis.new
