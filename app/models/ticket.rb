@@ -81,6 +81,7 @@ class Ticket < ActiveRecord::Base
     # Custom Fields
     data["fields"].each do |field_data|
       ticket.update_attribute(CUSTOM_FIELD_MAPS[field_data["id"].to_i], field_data["value"]) if CUSTOM_FIELD_MAPS[field_data["id"].to_i]
+    end
     
     # Tags
     data["tags"].each { |ztag| 
@@ -104,7 +105,7 @@ class Ticket < ActiveRecord::Base
     Group.create_from_zendesk_object(CLIENT.groups.find(ticket.group_id)) if ticket.group_id && !Group.exists?(ticket.group_id)
     ticket.notify_on_major_accounts if is_new && notify
 
-    assign_account_manager
+    ticket.assign_account_manager
     
     return ticket
   end
