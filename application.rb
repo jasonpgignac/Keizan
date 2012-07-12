@@ -5,6 +5,7 @@ require 'active_record'
 require 'zendesk'
 require 'pony'
 require 'resque'
+require 'resque-loner'
 
 require './app/models/event'
 require './app/models/comment'

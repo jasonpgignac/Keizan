@@ -1,4 +1,5 @@
 class TicketUpdater
+  include Resque::Plugins::UniqueJob
   @queue = "keizan_updater"
   
   def self.perform(id)

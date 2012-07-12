@@ -6,4 +6,5 @@ gem 'pg'
 gem 'rake'
 gem 'pony'
 gem 'resque'
+gem 'resque-loner'
 
