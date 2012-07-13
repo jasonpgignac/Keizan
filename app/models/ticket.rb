@@ -160,6 +160,7 @@ class Ticket < ActiveRecord::Base
         wat ||= WatchAccountType.create(name: am_tags[next_am_index], default_tags: [am_tags[next_am_index]])
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
         self.notify_on_major_accounts()
+        redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
         # assign to new 
       end
     end
