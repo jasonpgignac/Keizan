@@ -173,7 +173,7 @@ class Ticket < ActiveRecord::Base
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
         
         # assign to new
-        u = User.where(email: am_tags[next_am_index][1])
+        u = User.where(email: am_tags[next_am_index][1]).first
         zt = CLIENT.tickets.find(self.id)
         zt.assignee_id = u.id
         zt.save
