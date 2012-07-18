@@ -145,12 +145,12 @@ class Ticket < ActiveRecord::Base
 
   def assign_account_manager
     am_tags = [
-      ["MC_SGilmore","steven.gilmore@rackspace.com"],
-      ["MC_BHertzing","bill.hertzing@rackspace.com"],
-      ["MC_CHersh","christine.hersh@rackspace.com"],
-      ["MC_NGuerrero","nathan.guerrero@rackspace.com"],
-      ["MC_SSanchez","seth.sanchez@rackspace.com"],
-      ["MC_DBradley","daytona.bradley@RACKSPACE.COM"]
+      ["mc_sgilmore","steven.gilmore@rackspace.com"],
+      ["mc_bhertzing","bill.hertzing@rackspace.com"],
+      ["mc_chersh","christine.hersh@rackspace.com"],
+      ["mc_nguerrero","nathan.guerrero@rackspace.com"],
+      ["mc_ssanchez","seth.sanchez@rackspace.com"],
+      ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
     ]
     assigned_tags = am_tags.map {|t| t[0] } + ["smb_marquee","enterprise_marquee","zdmover_seen"]
     redis = Redis.new
