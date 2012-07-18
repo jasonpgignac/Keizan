@@ -34,7 +34,7 @@ class Ticket < ActiveRecord::Base
       records.map do |res| 
         unless res.nil?
           raw_data = res.to_json
-          REDIS.set("keizan__cache__ticket__#{res["id"]}",raw_data)
+          REDIS.set("keizan__cache__ticket__#{res["id"]}",nil)
           REDIS.set("keizan__cache__ticket__#{res["id"]}__audits",nil)
           Resque.enqueue(TicketUpdater, res["id"])
         end
@@ -189,20 +189,20 @@ class Ticket < ActiveRecord::Base
   end
   
   def self.cached_ticket_data_for(id)
-    raw_data = REDIS.get("keizan__cache__ticket__#{id}")
-    unless raw_data
+    #raw_data = REDIS.get("keizan__cache__ticket__#{id}")
+    #unless raw_data
       raw_data = CLIENT.tickets.find(id).attributes["ticket"].to_json
-      REDIS.set("keizan__cache__ticket__#{id}",raw_data)
-      REDIS.set("keizan__cache__ticket__#{id}__audits",nil)
-    end
+    #  REDIS.set("keizan__cache__ticket__#{id}",raw_data)
+    #  REDIS.set("keizan__cache__ticket__#{id}__audits",nil)
+    #end
     return JSON.parse(raw_data)
   end
   def cached_audits
-    raw_data = REDIS.get("keizan__cache__ticket__#{id}__audits")
-    unless raw_data
+    #raw_data = REDIS.get("keizan__cache__ticket__#{id}__audits")
+    #unless raw_data
       raw_data = CLIENT.connection.send('get',"tickets/#{id}/audits.json").body["audits"].to_json
       REDIS.set("keizan__cache__ticket__#{id}__audits",raw_data)
-    end
+    #end
     return JSON.parse(raw_data)
   end
 end
