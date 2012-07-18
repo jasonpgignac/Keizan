@@ -152,7 +152,7 @@ class Ticket < ActiveRecord::Base
       ["mc_ssanchez","seth.sanchez@rackspace.com"],
       ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
     ]
-    assigned_tags = am_tags.map {|t| t[0] } + ["smb_marquee","enterprise_marquee","zdmover_seen"]
+    assigned_tags = am_tags.map {|t| t[0] } + ["smb_marquee","enterprise_marquee","zdmover_moved"]
     redis = Redis.new
     
     unless redis.get("next_am_index")
