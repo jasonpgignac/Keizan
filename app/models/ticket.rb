@@ -165,7 +165,7 @@ class Ticket < ActiveRecord::Base
       if (self.tags.map { |tag| tag.name } & assigned_tags).empty?
         # Assign the next round robin am
         wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
-        wat ||= WatchAccountType.create(name: am_tags[next_am_index][0], default_tags: [am_tags[next_am_index]])
+        wat ||= WatchAccountType.create(name: am_tags[next_am_index][0], default_tags: [am_tags[next_am_index][0]])
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
         self.notify_on_major_accounts()
         
