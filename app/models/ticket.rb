@@ -144,8 +144,15 @@ class Ticket < ActiveRecord::Base
   end
 
   def assign_account_manager
-    am_tags = ["test_user","other_test_user","last_test_user"]
-    assigned_tags = am_tags + ["smb_marquee","enterprise_marquee"]
+    am_tags = [
+      ["MC_SGilmore","steven.gilmore@rackspace.com"],
+      ["MC_BHertzing","bill.hertzing@rackspace.com"],
+      ["MC_CHersh","christine.hersh@rackspace.com"],
+      ["MC_NGuerrero","nathan.guerrero@rackspace.com"],
+      ["MC_SSanchez","seth.sanchez@rackspace.com"],
+      ["MC_DBradley","daytona.bradley@RACKSPACE.COM"]
+    ]
+    assigned_tags = am_tags + ["smb_marquee","enterprise_marquee","zdmover_moved"]
     redis = Redis.new
     
     unless redis.get("next_am_index")
@@ -156,12 +163,27 @@ class Ticket < ActiveRecord::Base
     
     if self.tags.map { |tag| tag.name }.include?("managed_service")
       if (self.tags.map { |tag| tag.name } & assigned_tags).empty?
-        wat = WatchAccountType.where(name: am_tags[next_am_index]).first
-        wat ||= WatchAccountType.create(name: am_tags[next_am_index], default_tags: [am_tags[next_am_index]])
+        # Assign the next round robin am
+        wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
+        wat ||= WatchAccountType.create(name: am_tags[next_am_index][0], default_tags: [am_tags[next_am_index]])
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
         self.notify_on_major_accounts()
+        
+        # increment next_am_index
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
-        # assign to new 
+        
+        # assign to new
+        u = User.where(email: am_tags[next_am_index][1])
+        zt = CLIENT.tickets.find(self.id)
+        zt.assignee_id = u.id
+        zt.save
+        
+        
+        Pony.mail(
+          to:       "jason.gignac@rackspace.com", 
+          subject:  "[MANAGED] New Account for #{wat.name}",
+          body:     "The account #{self.ddi} has been assigned to #{wat.name}, through ticket #{self.id}"
+        )
       end
     end
   end
