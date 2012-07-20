@@ -84,7 +84,7 @@ class Ticket < ActiveRecord::Base
     end
     
     # Tags
-    ticket.tags = []
+    ticket.tags.destroy_all
     ticket.tags = data["tags"].map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
   
     ticket.save!
