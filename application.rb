@@ -21,6 +21,7 @@ require './app/models/watch_account_type'
 
 require './app/jobs/ticket_updater'
 
+ActiveRecord::Base.record_timestamps = false
 # Connect to the Database
 db_config = YAML::load(File.open(File.join(File.dirname(__FILE__),'config','database.yml')))
 ActiveRecord::Base.establish_connection(db_config)

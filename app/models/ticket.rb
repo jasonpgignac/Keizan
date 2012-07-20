@@ -9,7 +9,7 @@ class Ticket < ActiveRecord::Base
   has_many :satisfaction_ratings
   has_many :value_changes
   has_and_belongs_to_many :tags
-  
+ 
   CUSTOM_FIELD_MAPS = {
     115026 => :account_type,
     115030 => :ticket_category,
@@ -84,11 +84,8 @@ class Ticket < ActiveRecord::Base
     end
     
     # Tags
-    data["tags"].each { |ztag| 
-      tags = ticket.tags
-      tags << (Tag.find_by_name(ztag) || Tag.create(:name => ztag))
-      ticket.tags = tags
-    }
+    ticket.tags = []
+    ticket.tags = data["tags"].map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
   
     ticket.save!
     
@@ -105,7 +102,7 @@ class Ticket < ActiveRecord::Base
     Group.create_from_zendesk_object(CLIENT.groups.find(ticket.group_id)) if ticket.group_id && !Group.exists?(ticket.group_id)
     ticket.notify_on_major_accounts if is_new && notify
 
-    ticket.assign_account_manager
+    # ticket.assign_account_manager
     
     return ticket
   end
@@ -152,7 +149,7 @@ class Ticket < ActiveRecord::Base
       ["mc_ssanchez","seth.sanchez@rackspace.com"],
       ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
     ]
-    assigned_tags = am_tags.map {|t| t[0] } + ["smb_marquee","enterprise_marquee","zdmover_moved"]
+    assigned_tags = am_tags.map {|t| t[0] } + ["cloud_uk","smb_marquee","enterprise_marquee","zdmover_moved"]
     redis = Redis.new
     
     unless redis.get("next_am_index")
