@@ -102,7 +102,7 @@ class Ticket < ActiveRecord::Base
     Group.create_from_zendesk_object(CLIENT.groups.find(ticket.group_id)) if ticket.group_id && !Group.exists?(ticket.group_id)
     ticket.notify_on_major_accounts if is_new && notify
 
-    # ticket.assign_account_manager
+    ticket.assign_account_manager
     
     return ticket
   end
@@ -149,7 +149,7 @@ class Ticket < ActiveRecord::Base
       ["mc_ssanchez","seth.sanchez@rackspace.com"],
       ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
     ]
-    assigned_tags = am_tags.map {|t| t[0] } + ["cloud_uk","smb_marquee","enterprise_marquee","zdmover_moved"]
+    assigned_tags = am_tags.map {|t| t[0] } + ["cloud_uk","smb_marquee","enterprise_marquee","zdmover_moved","hybrid_ent","hybrid_smb"]
     redis = Redis.new
     
     unless redis.get("next_am_index")
@@ -163,23 +163,25 @@ class Ticket < ActiveRecord::Base
         # Assign the next round robin am
         wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
         wat ||= WatchAccountType.create(name: am_tags[next_am_index][0], default_tags: [am_tags[next_am_index][0]])
+	raise(RuntimeError, "I'm about to double assign an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
+	raise(RuntimeError, "Crap, I just double assigned an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 1
         self.notify_on_major_accounts()
         
         # increment next_am_index
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
         
         # assign to new
-        u = User.where(email: am_tags[next_am_index][1]).first
-        zt = CLIENT.tickets.find(self.id)
-        zt.assignee_id = u.id
-        zt.save
+        # u = User.where(email: am_tags[next_am_index][1]).first
+        # zt = CLIENT.tickets.find(self.id)
+        # zt.assignee_id = u.id
+        # zt.save
         
         
         Pony.mail(
-          to:       "jason.gignac@rackspace.com", 
+          to:       ["jason.gignac@rackspace.com",am_tags[next_am_index][1]], 
           subject:  "[MANAGED] New Account for #{wat.name}",
-          body:     "The account #{self.ddi} has been assigned to #{wat.name}, through ticket #{self.id}"
+          body:     "The account #{self.ddi} has been assigned to the #{wat.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
         )
       end
     end
