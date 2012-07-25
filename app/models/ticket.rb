@@ -83,14 +83,16 @@ class Ticket < ActiveRecord::Base
       ticket.update_attribute(CUSTOM_FIELD_MAPS[field_data["id"].to_i], field_data["value"]) if CUSTOM_FIELD_MAPS[field_data["id"].to_i]
     end
     
-    # Tags
-    ticket.tags.destroy_all
-    ticket.tags = data["tags"].map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
+    unless ticket.status == "closed" || ticket.status == "Closed"
+      # Tags
+      ticket.tags.destroy_all
+      ticket.tags = data["tags"].map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
   
-    ticket.save!
+      ticket.save!
+      ticket.assign_account_manager
+    end
     
     # Events
-    #zt.audits.each { |a| debugger; a.events.each { |e| Event.create_from_zendesk_objects(event: e, audit: a, ticket: ticket) } }
     audits = {}
     ticket.cached_audits.each { |a| a["events"].each { |e| audits[a] ||= []; audits[a] << e}}
     audits.each { |a,events| events.each { |e| Event.create_from_zendesk_objects(event: e, audit: a, ticket: ticket)}}
@@ -101,8 +103,6 @@ class Ticket < ActiveRecord::Base
     Organization.create_from_zendesk_object(CLIENT.organizations.find(ticket.organization_id)) if ticket.organization_id && !Organization.exists?(ticket.organization_id)
     Group.create_from_zendesk_object(CLIENT.groups.find(ticket.group_id)) if ticket.group_id && !Group.exists?(ticket.group_id)
     ticket.notify_on_major_accounts if is_new && notify
-
-    ticket.assign_account_manager
     
     return ticket
   end
@@ -149,7 +149,7 @@ class Ticket < ActiveRecord::Base
       ["mc_ssanchez","seth.sanchez@rackspace.com"],
       ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
     ]
-    assigned_tags = am_tags.map {|t| t[0] } + ["cloud_uk","smb_marquee","enterprise_marquee","zdmover_moved","hybrid_ent","hybrid_smb"]
+    assigned_tags = am_tags.map {|t| t[0] } + ["cloud_uk","smb_marquee","enterprise_marquee","zdmover_moved","mc_ampool","mc_dcox","mc_mspenn","mc_sford"i,"hybrid_ent","hybrid_smb"]
     redis = Redis.new
     
     unless redis.get("next_am_index")
@@ -157,9 +157,10 @@ class Ticket < ActiveRecord::Base
     end
     
     next_am_index = redis.get("next_am_index").to_i
-    
-    if self.tags.map { |tag| tag.name }.include?("managed_service")
-      if (self.tags.map { |tag| tag.name } & assigned_tags).empty?
+   
+    return nil unless organization
+    organization.with_lock do
+      if self.tags.map { |tag| tag.name }.include?("managed_service") && (self.tags.map { |tag| tag.name } & assigned_tags).empty?
         # Assign the next round robin am
         wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
         wat ||= WatchAccountType.create(name: am_tags[next_am_index][0], default_tags: [am_tags[next_am_index][0]])
