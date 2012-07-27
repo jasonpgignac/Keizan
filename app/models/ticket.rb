@@ -1,3 +1,5 @@
+require 'redis-lock'
+
 class Ticket < ActiveRecord::Base
   belongs_to :requestor, :class_name => "User"
   belongs_to :submitter, :class_name => "User"
@@ -155,44 +157,50 @@ class Ticket < ActiveRecord::Base
       ["mc_ssanchez","seth.sanchez@rackspace.com"],
       ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
     ]
-    assigned_tags = am_tags.map {|t| t[0] } + ["cloud_uk","smb_marquee","enterprise_marquee","zdmover_moved","mc_ampool","mc_dcox","mc_mspenn","mc_sford","hybrid_ent","hybrid_smb"]
+    
+    assigned_tags = am_tags.map {|t| t[0] } + [
+      "cloud_uk",
+      "smb_marquee",
+      "enterprise_marquee",
+      "zdmover_moved",
+      "mc_ampool",
+      "mc_dcox",
+      "mc_mspenn",
+      "mc_sford",
+      "hybrid_ent",
+      "hybrid_smb"
+    ]
+    
     redis = Redis.new
     
     unless redis.get("next_am_index")
       redis.set("next_am_index",0)
     end
-    
-    next_am_index = redis.get("next_am_index").to_i
-   
-    raise RuntimeError, "No Organization!" unless organization
-    organization.with_lock do
-      if self.tags.map { |tag| tag.name }.include?("futurezen") && (self.tags.map { |tag| tag.name } & assigned_tags).empty?
+    Redis.new.lock_for_update("next_am_index") do
+      next_am_index = redis.get("next_am_index").to_i
+     
+      raise RuntimeError, "No Organization!" unless organization
+      raise RuntimeError, "This new ticket didn't get tagged! Its tags are #{ self.tags.map { |tag| tag.name }.join(", ") }" unless self.tags.map { |tag| tag.name }.include?("futurezen") && (self.tags.map { |tag| tag.name } & assigned_tags).empty?
+      
+      organization.with_lock do
         # Assign the next round robin am
         wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
-        wat ||= WatchAccountType.create(name: am_tags[next_am_index][0], default_tags: [am_tags[next_am_index][0]])
-	raise(RuntimeError, "I'm about to double assign an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
+        wat ||= WatchAccountType.create(
+          name:         am_tags[next_am_index][0], 
+          default_tags: [ am_tags[next_am_index][0] ]
+        )
+  	    raise(RuntimeError, "I'm about to double assign an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
-	raise(RuntimeError, "Crap, I just double assigned an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 1
+  	    raise(RuntimeError, "Crap, I just double assigned an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 1
         self.notify_on_major_accounts()
-        
+          
         # increment next_am_index
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
-        
-        # assign to new
-        # u = User.where(email: am_tags[next_am_index][1]).first
-        # zt = CLIENT.tickets.find(self.id)
-        # zt.assignee_id = u.id
-        # zt.save
-        
-        
         Pony.mail(
           to:       ["jason.gignac@rackspace.com",am_tags[next_am_index][1]], 
           subject:  "[MANAGED] New Account for #{wat.name}",
           body:     "The account #{self.ddi} has been assigned to the #{wat.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
         )
-      elsif self.tags.map { |tag| tag.name }.include?("futurezen")
-        self.destroy
-	raise RuntimeError, "This new ticket didn't get tagged! Its tags are #{ self.tags.map { |tag| tag.name }.join(", ") }"
       end
     end
   end
