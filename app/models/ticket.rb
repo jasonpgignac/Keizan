@@ -25,11 +25,16 @@ class Ticket < ActiveRecord::Base
   }
   
   def self.update(newest_date = nil)
+    
     newest_date ||= Event.maximum(:created_at)
     newest_date = DateTime.now - 5.minutes unless DateTime.now - 5.minutes > newest_date
+    newest_date = newest_date.to_i.to_s
     
-    result = CLIENT.connection.send('get',"exports/tickets.json?start_time=" + newest_date.to_i.to_s)
-    records = result.body["results"]
+    records = CLIENT.connection.send(
+      'get',
+      "exports/tickets.json?start_time=#{newest_date}"
+    ).body["results"]
+    
     until records.empty?
       records.map do |res| 
         unless res.nil?
@@ -83,15 +88,18 @@ class Ticket < ActiveRecord::Base
       ticket.update_attribute(CUSTOM_FIELD_MAPS[field_data["id"].to_i], field_data["value"]) if CUSTOM_FIELD_MAPS[field_data["id"].to_i]
     end
     ticket.notify_on_major_accounts if is_new && notify
-    Organization.create_from_zendesk_object(CLIENT.organizations.find(ticket.organization_id)) if ticket.organization_id && !Organization.exists?(ticket.organization_id)
-    unless ticket.status == "closed" || ticket.status == "Closed"
-      # Tags
-      ticket.tags.destroy_all
-      ticket.tags = data["tags"].map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
-  
-      ticket.save!
-      ticket.assign_account_manager if is_new
+    
+    if ticket.organization_id && !Organization.exists?(ticket.organization_id)
+      zo = CLIENT.organizations.find(ticket.organization_id)
+      ticket.organization = Organization.create_from_zendesk_object(zo)
     end
+    
+    # Tags
+    ticket.tags.destroy_all
+    ticket.tags = data["tags"].map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
+   
+    ticket.save!
+    ticket.assign_account_manager if is_new && !(ticket.status == "closed" || ticket.status == "Closed")
     
     # Events
     audits = {}
@@ -156,7 +164,7 @@ class Ticket < ActiveRecord::Base
     
     next_am_index = redis.get("next_am_index").to_i
    
-    return nil unless organization
+    raise RuntimeError, "No Organization!" unless organization
     organization.with_lock do
       if self.tags.map { |tag| tag.name }.include?("futurezen") && (self.tags.map { |tag| tag.name } & assigned_tags).empty?
         # Assign the next round robin am
