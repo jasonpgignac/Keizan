@@ -82,14 +82,15 @@ class Ticket < ActiveRecord::Base
     data["fields"].each do |field_data|
       ticket.update_attribute(CUSTOM_FIELD_MAPS[field_data["id"].to_i], field_data["value"]) if CUSTOM_FIELD_MAPS[field_data["id"].to_i]
     end
-    
+    ticket.notify_on_major_accounts if is_new && notify
+    Organization.create_from_zendesk_object(CLIENT.organizations.find(ticket.organization_id)) if ticket.organization_id && !Organization.exists?(ticket.organization_id)
     unless ticket.status == "closed" || ticket.status == "Closed"
       # Tags
       ticket.tags.destroy_all
       ticket.tags = data["tags"].map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
   
       ticket.save!
-      ticket.assign_account_manager
+      ticket.assign_account_manager if is_new
     end
     
     # Events
@@ -102,7 +103,6 @@ class Ticket < ActiveRecord::Base
     User.create_from_zendesk_object(CLIENT.users.find(ticket.assignee_id)) if ticket.assignee_id && !User.exists?(ticket.assignee_id)
     Organization.create_from_zendesk_object(CLIENT.organizations.find(ticket.organization_id)) if ticket.organization_id && !Organization.exists?(ticket.organization_id)
     Group.create_from_zendesk_object(CLIENT.groups.find(ticket.group_id)) if ticket.group_id && !Group.exists?(ticket.group_id)
-    ticket.notify_on_major_accounts if is_new && notify
     
     return ticket
   end
@@ -128,13 +128,11 @@ class Ticket < ActiveRecord::Base
         if (default_tags & tag_array) != default_tags
           zt = CLIENT.tickets.find(self.id)
           tags = zt.tags
-  	      tags = tags + default_tags
+  	  tags = tags + default_tags
           zt.tags = tags
           zt.save
-	        default_tags.each { |t| 
-  	        self.tags << (Tag.find_by_name(t.downcase) || Tag.create(:name => t.downcase)) unless self.tags.include? t.downcase 
-  	      }
-	        self.save
+          self.tags = self.tags + default_tags.map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
+	  self.save
         end
       end
     end
@@ -149,7 +147,7 @@ class Ticket < ActiveRecord::Base
       ["mc_ssanchez","seth.sanchez@rackspace.com"],
       ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
     ]
-    assigned_tags = am_tags.map {|t| t[0] } + ["cloud_uk","smb_marquee","enterprise_marquee","zdmover_moved","mc_ampool","mc_dcox","mc_mspenn","mc_sford"i,"hybrid_ent","hybrid_smb"]
+    assigned_tags = am_tags.map {|t| t[0] } + ["cloud_uk","smb_marquee","enterprise_marquee","zdmover_moved","mc_ampool","mc_dcox","mc_mspenn","mc_sford","hybrid_ent","hybrid_smb"]
     redis = Redis.new
     
     unless redis.get("next_am_index")
@@ -160,7 +158,7 @@ class Ticket < ActiveRecord::Base
    
     return nil unless organization
     organization.with_lock do
-      if self.tags.map { |tag| tag.name }.include?("managed_service") && (self.tags.map { |tag| tag.name } & assigned_tags).empty?
+      if self.tags.map { |tag| tag.name }.include?("futurezen") && (self.tags.map { |tag| tag.name } & assigned_tags).empty?
         # Assign the next round robin am
         wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
         wat ||= WatchAccountType.create(name: am_tags[next_am_index][0], default_tags: [am_tags[next_am_index][0]])
@@ -184,6 +182,9 @@ class Ticket < ActiveRecord::Base
           subject:  "[MANAGED] New Account for #{wat.name}",
           body:     "The account #{self.ddi} has been assigned to the #{wat.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
         )
+      elsif self.tags.map { |tag| tag.name }.include?("futurezen")
+        self.destroy
+	raise RuntimeError, "This new ticket didn't get tagged! Its tags are #{ self.tags.map { |tag| tag.name }.join(", ") }"
       end
     end
   end
