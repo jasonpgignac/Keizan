@@ -180,7 +180,6 @@ class Ticket < ActiveRecord::Base
       next_am_index = redis.get("next_am_index").to_i
      
       raise RuntimeError, "No Organization!" unless organization
-      raise RuntimeError, "This new ticket didn't get tagged! Its tags are #{ self.tags.map { |tag| tag.name }.join(", ") }" unless self.tags.map { |tag| tag.name }.include?("futurezen") && (self.tags.map { |tag| tag.name } & assigned_tags).empty?
       
       organization.with_lock do
         # Assign the next round robin am
@@ -204,7 +203,6 @@ class Ticket < ActiveRecord::Base
     end
   end
   
-  private
   def self.cached_ticket_data_for(id)
     #raw_data = REDIS.get("keizan__cache__ticket__#{id}")
     #unless raw_data
