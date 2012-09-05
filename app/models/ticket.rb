@@ -149,6 +149,9 @@ class Ticket < ActiveRecord::Base
   end
 
   def assign_account_manager
+    return nil unless self.tags.map { |tag| tag.name }.include?("futurezen")
+    return nil if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
+    
     am_tags = [
       ["mc_sgilmore","steven.gilmore@rackspace.com"],
       ["mc_bhertzing","bill.hertzing@rackspace.com"],
@@ -188,7 +191,6 @@ class Ticket < ActiveRecord::Base
           name:         am_tags[next_am_index][0], 
           default_tags: [ am_tags[next_am_index][0] ]
         )
-  	    return nil if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
   	    self.notify_on_major_accounts()
           
