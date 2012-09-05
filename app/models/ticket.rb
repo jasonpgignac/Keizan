@@ -191,8 +191,7 @@ class Ticket < ActiveRecord::Base
         )
   	    raise(RuntimeError, "I'm about to double assign an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
-  	    raise(RuntimeError, "Crap, I just double assigned an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 1
-        self.notify_on_major_accounts()
+  	    self.notify_on_major_accounts()
           
         # increment next_am_index
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
@@ -205,6 +204,7 @@ class Ticket < ActiveRecord::Base
     end
   end
   
+  private
   def self.cached_ticket_data_for(id)
     #raw_data = REDIS.get("keizan__cache__ticket__#{id}")
     #unless raw_data
