@@ -188,7 +188,7 @@ class Ticket < ActiveRecord::Base
           name:         am_tags[next_am_index][0], 
           default_tags: [ am_tags[next_am_index][0] ]
         )
-  	    raise(RuntimeError, "I'm about to double assign an account!") if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
+  	    return nil if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
   	    self.notify_on_major_accounts()
           
