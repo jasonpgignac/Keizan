@@ -81,7 +81,8 @@ class WatchAccount < ActiveRecord::Base
     response = Net::HTTP.start(url.host, url.port, :use_ssl => true, :verify_mode => OpenSSL::SSL::VERIFY_NONE) do |http|
       http.request(request)
     end
-    @auth_token = JSON.parse(response.body)["auth"]["access_token"]["id"]
+    @auth_token = XmlSimple.xml_in(response.body)["access_token"][0]["id"]
+    #JSON.parse(response.body)["access_token"]["id"]
   end
   
   def record_is_unique

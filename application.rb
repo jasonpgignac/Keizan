@@ -7,6 +7,8 @@ require 'pony'
 require 'resque'
 require 'resque-loner'
 
+require './app/models/hmdb_account'
+
 require './app/models/event'
 require './app/models/comment'
 require './app/models/satisfaction_rating'
@@ -38,3 +40,5 @@ CLIENT = Zendesk.configure do |config|
   config.log = true
 end
 REDIS = Redis.new
+
+HmdbAccount.configuration = YAML::load(File.open(File.join(File.dirname(__FILE__),'config','hmdb.yml')))

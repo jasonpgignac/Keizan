@@ -9,4 +9,3 @@ gem 'resque'
 gem 'resque-loner'
 gem 'redis-lock'
 gem 'xml-simple'
-
