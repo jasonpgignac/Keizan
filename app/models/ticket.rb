@@ -158,10 +158,7 @@ class Ticket < ActiveRecord::Base
       ["mc_chersh","christine.hersh@rackspace.com"],
       ["mc_nguerrero","nathan.guerrero@rackspace.com"],
       ["mc_ssanchez","seth.sanchez@rackspace.com"],
-      ["mc_dbradley","daytona.bradley@RACKSPACE.COM"],
-      ["mc_dcox","drew.cox@rackspace.com"],
-      ["mc_mspenn","matt.spenn@rackspace.com"],
-      ["mc_sford","stacey.ford@rackspace.com"]
+      ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
     ]
     
     assigned_tags = am_tags.map {|t| t[0] } + [
@@ -172,7 +169,10 @@ class Ticket < ActiveRecord::Base
       "mc_ampool",
       "hybrid_ent",
       "hybrid_smb",
-      "cloud_uk"
+      "cloud_uk",
+      "mc_dcox",
+      "mc_mspenn",
+      "mc_sford"
     ]
     
     redis = Redis.new
