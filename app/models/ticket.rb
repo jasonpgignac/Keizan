@@ -169,11 +169,12 @@ class Ticket < ActiveRecord::Base
       "mc_ampool",
       "hybrid_ent",
       "hybrid_smb",
-      "cloud_uk",
       "mc_dcox",
       "mc_mspenn",
       "mc_sford"
     ]
+    
+    return nil if assigned_tags - self.tags.map { |tag| tag.name } != assigned_tags
     
     redis = Redis.new
     
