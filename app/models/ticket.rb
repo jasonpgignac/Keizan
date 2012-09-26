@@ -90,6 +90,7 @@ class Ticket < ActiveRecord::Base
       ticket.update_attribute(CUSTOM_FIELD_MAPS[field_data["id"].to_i], field_data["value"]) if CUSTOM_FIELD_MAPS[field_data["id"].to_i]
     end
     ticket.notify_on_major_accounts if is_new && notify
+    ticket.mark_new_accounts if is_new
     
     if ticket.organization_id && !Organization.exists?(ticket.organization_id)
       zo = CLIENT.organizations.find(ticket.organization_id)
@@ -203,6 +204,18 @@ class Ticket < ActiveRecord::Base
           subject:  "[MANAGED] New Account for #{wat.name}",
           body:     "The account #{self.ddi} has been assigned to the #{wat.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
         )
+      end
+    end
+  end
+  
+  def mark_new_accounts
+    if HmdbAccount.find(self.ddi).new_account?
+      zt = CLIENT.tickets.find(self.id)
+      tags = zt.tags
+      unless tags.include?("cloud_launch")
+        tags = tags + "cloud_launch"
+        zt.tags = tags
+        zt.save
       end
     end
   end
