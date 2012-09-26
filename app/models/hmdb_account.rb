@@ -16,7 +16,7 @@ class HmdbAccount
   end
   
   def self.find(id)
-    sql = table.project('*').where( table[:Id].eq id ).to_sql
+    sql = table.project('*').where( table[:Id].eq(id.to_i) ).to_sql
     d = self.new
     d.data = connection.exec_query(sql).rows[0] || {}
     return d unless d.data.nil?
