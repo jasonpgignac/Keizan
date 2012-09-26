@@ -31,6 +31,7 @@ class HmdbAccount
   end
   
   def new_account?
+    return false if self.creation_date.nil?
     self.creation_date > DateTime.now - 1.month
   end
 end
