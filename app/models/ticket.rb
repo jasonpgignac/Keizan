@@ -213,7 +213,7 @@ class Ticket < ActiveRecord::Base
       zt = CLIENT.tickets.find(self.id)
       tags = zt.tags
       unless tags.include?("cloud_launch")
-        tags = tags + "cloud_launch"
+        tags = tags  << "cloud_launch"
         zt.tags = tags
         zt.save
       end
