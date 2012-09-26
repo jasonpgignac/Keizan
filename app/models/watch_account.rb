@@ -3,6 +3,7 @@ require 'net/http'
 class WatchAccount < ActiveRecord::Base
   belongs_to :watch_account_type
   validate :record_is_unique
+  after_save :update_cmdb
   
   def account_manager
     url = URI.parse("#{ configuration["url"] }/support-accounts/C#{number}/roleassignments")
