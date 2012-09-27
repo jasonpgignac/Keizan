@@ -151,7 +151,6 @@ class Ticket < ActiveRecord::Base
 
   def assign_account_manager
     return nil unless self.tags.map { |tag| tag.name }.include?("futurezen")
-    return nil if WatchAccount.where("watch_account_type_id > 29").where(number: self.ddi).size > 0
     
     am_tags = [
       ["mc_sgilmore","steven.gilmore@rackspace.com"],

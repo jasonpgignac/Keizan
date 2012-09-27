@@ -3,7 +3,7 @@ require 'net/http'
 class WatchAccount < ActiveRecord::Base
   belongs_to :watch_account_type
   validate :record_is_unique
-  after_save :update_cmdb
+  #after_save :update_cmdb
   
   def account_manager
     url = URI.parse("#{ configuration["url"] }/support-accounts/C#{number}/roleassignments")
@@ -23,6 +23,7 @@ class WatchAccount < ActiveRecord::Base
     set_account_manager if watch_account_type.is_account_manager
     set_cmdb_group if watch_account_type.is_team
   end
+  
   def set_account_manager
     url = URI.parse("#{ configuration["url"] }/support-accounts/C#{number}/roleassignments/AccountManager/users/#{watch_account_type.cmdb_tag}")
     request = Net::HTTP::Put.new(url.path)
