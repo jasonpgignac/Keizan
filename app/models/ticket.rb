@@ -58,6 +58,7 @@ class Ticket < ActiveRecord::Base
   def self.create_from_zendesk_id(id, add_tags=true)
     ticket = Ticket.find(id) if Ticket.exists?(id)
     ticket ||= self.new
+    @is_new = ticket.id.nil?
     ticket.id = id
     
     # Importing data about the ticket
@@ -65,7 +66,8 @@ class Ticket < ActiveRecord::Base
     ticket.create_associated_users_and_organization
     
     # Adding new tags (if the ticket is new, and not closed)
-    if ticket.id.nil? && add_tags && !(ticket.status == "closed" || ticket.status == "Closed")
+    puts "Ticket: #{ticket.id.nil?} #{add_tags} #{ticket.status}"
+    if @is_new && add_tags && !(ticket.status == "closed" || ticket.status == "Closed")
       ticket.apply_watch_accounts
       ticket.mark_new_accounts
       ticket.assign_account_manager 
@@ -89,12 +91,14 @@ class Ticket < ActiveRecord::Base
 
   def update_tags
     if @zd_tags
+      puts "###Updating Tags now (#{@zd_tags})!"
       #Update Keizan
       self.tags.destroy_all
       self.tags = @zd_tags.map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
       
       #Update Zendesk
       if @zdtags_updated
+        puts "Writing back to the client"
         zt = CLIENT.tickets.find(self.id)
         zt.tags = (@zd_tags + zt.tags).uniq
         zt.save
@@ -104,9 +108,11 @@ class Ticket < ActiveRecord::Base
   
   def apply_watch_accounts
     import_fields_from_zendesk unless @zd_tags
+    puts "My ddi is: #{self.ddi}"
     
     watch_accounts = WatchAccount.find_all_by_number(self.ddi)
     watch_accounts.each do |w|
+      puts "Applying WAtchAccount #{w.id}: #{w.name}"
       # First send notification emails 
       Pony.mail(
         to:       w.watch_account_type.notification_emails, 
