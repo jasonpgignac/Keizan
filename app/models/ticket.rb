@@ -121,7 +121,7 @@ class Ticket < ActiveRecord::Base
       ) if w.watch_account_type.notification_emails
 	    
 	    if w.watch_account_type.default_tags
-  	    @zdtags = @zd_tags + w.watch_account_type.default_tags
+  	    @zd_tags = @zd_tags + w.watch_account_type.default_tags
   	    @zdtags_updated = true
   	  end
     end
