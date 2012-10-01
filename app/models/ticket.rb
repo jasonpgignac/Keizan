@@ -176,7 +176,7 @@ class Ticket < ActiveRecord::Base
         raise RuntimeError, "Trying to assign AM #{am_tags[next_am_index][0]}, but there is no matching WatchAccountType" unless wat
         
         wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
-  	    @zd_tags = @zd_tags + w.watch_account_type.default_tags
+  	    @zd_tags = @zd_tags + wa.watch_account_type.default_tags
           
         # increment next_am_index
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
@@ -184,8 +184,8 @@ class Ticket < ActiveRecord::Base
         # Mail notification
         Pony.mail(
           to:       ["jason.gignac@rackspace.com",am_tags[next_am_index][1]], 
-          subject:  "[MANAGED] New Account for #{wat.name}",
-          body:     "The account #{self.ddi} has been assigned to the #{wat.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
+          subject:  "[MANAGED] New Account for #{wa.watch_account_type.name}",
+          body:     "The account #{self.ddi} has been assigned to the #{wa.watch_account_type.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
         )
       end
     end
