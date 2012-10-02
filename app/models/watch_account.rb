@@ -19,7 +19,6 @@ class WatchAccount < ActiveRecord::Base
   end
   
   def update_cmdb
-    puts "Updating watch account #{id}"
     set_account_manager if watch_account_type.is_account_manager
     set_cmdb_group if watch_account_type.is_team
   end

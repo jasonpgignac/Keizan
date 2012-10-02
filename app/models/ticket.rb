@@ -66,7 +66,6 @@ class Ticket < ActiveRecord::Base
     ticket.create_associated_users_and_organization
     
     # Adding new tags (if the ticket is new, and not closed)
-    puts "Ticket: #{ticket.id.nil?} #{add_tags} #{ticket.status}"
     if @is_new && add_tags && !(ticket.status == "closed" || ticket.status == "Closed")
       ticket.apply_watch_accounts
       ticket.mark_new_accounts
@@ -91,14 +90,12 @@ class Ticket < ActiveRecord::Base
 
   def update_tags
     if @zd_tags
-      puts "###Updating Tags now (#{@zd_tags})!"
       #Update Keizan
       self.tags.destroy_all
       self.tags = @zd_tags.map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
       
       #Update Zendesk
       if @zdtags_updated
-        puts "Writing back to the client"
         zt = CLIENT.tickets.find(self.id)
         zt.tags = (@zd_tags + zt.tags).uniq
         zt.save
@@ -108,11 +105,9 @@ class Ticket < ActiveRecord::Base
   
   def apply_watch_accounts
     import_fields_from_zendesk unless @zd_tags
-    puts "My ddi is: #{self.ddi}"
     
     watch_accounts = WatchAccount.find_all_by_number(self.ddi)
     watch_accounts.each do |w|
-      puts "Applying WAtchAccount #{w.id}: #{w.name}"
       # First send notification emails 
       Pony.mail(
         to:       w.watch_account_type.notification_emails, 
@@ -156,7 +151,7 @@ class Ticket < ActiveRecord::Base
     ]
     
     # We only round robin on tickets that include none of the exception tags listed above
-    return nil if assigned_tags - self.tags.map { |tag| tag.name } != assigned_tags
+    return nil if assigned_tags - @zd_tags != assigned_tags
     
     #Here, we start the actual round robin assignment
     raise RuntimeError, "Cannot assign round robin AM on ticket #{self.id} without an organization" unless organization
@@ -175,7 +170,7 @@ class Ticket < ActiveRecord::Base
         wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
         raise RuntimeError, "Trying to assign AM #{am_tags[next_am_index][0]}, but there is no matching WatchAccountType" unless wat
         
-        wa = WatchAccount.create(watch_account_type_id: wat.id, number: self.ddi)
+        wa = WatchAccount.create!(watch_account_type_id: wat.id, number: self.ddi)
   	    @zd_tags = @zd_tags + wa.watch_account_type.default_tags
           
         # increment next_am_index
