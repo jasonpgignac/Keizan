@@ -97,7 +97,7 @@ class Ticket < ActiveRecord::Base
       #Update Zendesk
       if @zdtags_updated
         zt = CLIENT.tickets.find(self.id)
-        zt.tags = (@zd_tags + zt.tags).uniq
+        zt.tags = (@zd_tags + zt.tags).map { |tag| tag.downcase }.uniq
         zt.save
       end
     end
@@ -116,7 +116,7 @@ class Ticket < ActiveRecord::Base
       ) if w.watch_account_type.notification_emails
 	    
 	    if w.watch_account_type.default_tags
-  	    @zd_tags = @zd_tags + w.watch_account_type.default_tags
+  	    @zd_tags = (@zd_tags + w.watch_account_type.default_tags).map { |tag| tag.downcase }.uniq
   	    @zdtags_updated = true
   	  end
     end
@@ -171,7 +171,7 @@ class Ticket < ActiveRecord::Base
         raise RuntimeError, "Trying to assign AM #{am_tags[next_am_index][0]}, but there is no matching WatchAccountType" unless wat
         
         wa = WatchAccount.create!(watch_account_type_id: wat.id, number: self.ddi)
-  	    @zd_tags = @zd_tags + wa.watch_account_type.default_tags
+  	    @zd_tags = (@zd_tags + wa.watch_account_type.default_tags).uniq
           
         # increment next_am_index
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
@@ -188,13 +188,8 @@ class Ticket < ActiveRecord::Base
   
   def mark_new_accounts
     if HmdbAccount.find(self.ddi).new_account?
-      zt = CLIENT.tickets.find(self.id)
-      tags = zt.tags
-      unless tags.include?("cloud_launch")
-        tags = tags  << "cloud_launch"
-        zt.tags = tags
-        zt.save
-      end
+      import_fields_from_zendesk unless @zd_tags
+      @zd_tags = (@zd_tags + ["cloud_launch"]).uniq
     end
   end
   
@@ -228,9 +223,9 @@ class Ticket < ActiveRecord::Base
     end
     
     # Dates must be set by this method or the Zendesk plugin messes up the timezones
-    due_at = data["due_at"]
-    created_at = data["created_at"]
-    updated_at = data["updated_at"]
+    self.due_at = data["due_at"]
+    self.created_at = data["created_at"]
+    self.updated_at = data["updated_at"]
     
     # The only part of Via that we want is the channel
     via = data["via"] ? data["via"]["channel"] : nil
