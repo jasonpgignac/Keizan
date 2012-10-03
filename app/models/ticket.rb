@@ -11,7 +11,8 @@ class Ticket < ActiveRecord::Base
   has_many :satisfaction_ratings, dependent: :destroy
   has_many :value_changes, dependent: :destroy
   has_and_belongs_to_many :tags
- 
+  before_save :update_refresh
+  
   CUSTOM_FIELD_MAPS = {
     115026 => :account_type,
     115030 => :ticket_category,
@@ -235,6 +236,10 @@ class Ticket < ActiveRecord::Base
       self.update_attribute(CUSTOM_FIELD_MAPS[field_data["id"].to_i], field_data["value"]) if CUSTOM_FIELD_MAPS[field_data["id"].to_i]
     end
     @zd_tags = data["tags"]
+  end
+  
+  def update_refresh
+    self.refreshed_at = DateTime.now
   end
   
   def create_associated_users_and_organization
