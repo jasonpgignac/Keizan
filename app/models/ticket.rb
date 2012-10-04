@@ -172,8 +172,8 @@ class Ticket < ActiveRecord::Base
         raise RuntimeError, "Trying to assign AM #{am_tags[next_am_index][0]}, but there is no matching WatchAccountType" unless wat
         
         wa = WatchAccount.create!(watch_account_type_id: wat.id, number: self.ddi)
-  	    @zd_tags = (@zd_tags + wa.watch_account_type.default_tags).uniq
-          
+  	    apply_watch_accounts
+  	      
         # increment next_am_index
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
         
