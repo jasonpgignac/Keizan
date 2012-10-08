@@ -135,7 +135,8 @@ class Ticket < ActiveRecord::Base
       ["mc_chersh","christine.hersh@rackspace.com"],
       ["mc_nguerrero","nathan.guerrero@rackspace.com"],
       ["mc_ssanchez","seth.sanchez@rackspace.com"],
-      ["mc_dbradley","daytona.bradley@RACKSPACE.COM"]
+      ["mc_dbradley","daytona.bradley@RACKSPACE.COM"],
+      ["mc_mamato","michael.amato@rackspace.com"]
     ]
 
     assigned_tags = am_tags.map {|t| t[0] } + [
