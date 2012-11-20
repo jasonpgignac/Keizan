@@ -130,13 +130,7 @@ class Ticket < ActiveRecord::Base
     return nil unless @zd_tags.include?("futurezen")
     
     am_tags = [
-      ["mc_sgilmore","steven.gilmore@rackspace.com"],
-      ["mc_bhertzing","bill.hertzing@rackspace.com"],
-      ["mc_chersh","christine.hersh@rackspace.com"],
-      ["mc_nguerrero","nathan.guerrero@rackspace.com"],
-      ["mc_ssanchez","seth.sanchez@rackspace.com"],
-      ["mc_dbradley","daytona.bradley@RACKSPACE.COM"],
-      ["mc_mamato","michael.amato@rackspace.com"]
+      ["mc_ampool",""]
     ]
 
     assigned_tags = am_tags.map {|t| t[0] } + [
@@ -147,9 +141,17 @@ class Ticket < ActiveRecord::Base
       "mc_ampool",
       "hybrid_ent",
       "hybrid_smb",
+      "hybrid_corp",
       "mc_dcox",
       "mc_mspenn",
-      "mc_sford"
+      "mc_sford",
+      "mc_sgilmore",
+      "mc_bhertzing",
+      "mc_chersh",
+      "mc_nguerrero",
+      "mc_ssanchez",
+      "mc_dbradley",
+      "mc_mamato"
     ]
     
     # We only round robin on tickets that include none of the exception tags listed above
@@ -179,11 +181,11 @@ class Ticket < ActiveRecord::Base
         redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
         
         # Mail notification
-        Pony.mail(
-          to:       ["jason.gignac@rackspace.com",am_tags[next_am_index][1]], 
-          subject:  "[MANAGED] New Account for #{wa.watch_account_type.name}",
-          body:     "The account #{self.ddi} has been assigned to the #{wa.watch_account_type.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
-        )
+        #Pony.mail(
+        #  to:       ["jason.gignac@rackspace.com",am_tags[next_am_index][1]], 
+        #  subject:  "[MANAGED] New Account for #{wa.watch_account_type.name}",
+        #  body:     "The account #{self.ddi} has been assigned to the #{wa.watch_account_type.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
+        #)
       end
     end
   end
