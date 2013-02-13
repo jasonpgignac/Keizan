@@ -169,24 +169,14 @@ class Ticket < ActiveRecord::Base
     redis.lock_for_update("next_am_index") do
       next_am_index = redis.get("next_am_index").to_i
       
-      organization.with_lock do
-        # Assign the next round robin am
-        wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
-        raise RuntimeError, "Trying to assign AM #{am_tags[next_am_index][0]}, but there is no matching WatchAccountType" unless wat
+      wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
+      raise RuntimeError, "Trying to assign AM #{am_tags[next_am_index][0]}, but there is no matching WatchAccountType" unless wat
         
-        wa = WatchAccount.create!(watch_account_type_id: wat.id, number: self.ddi)
-  	    apply_watch_accounts
+      wa = WatchAccount.create!(watch_account_type_id: wat.id, number: self.ddi)
+  	  apply_watch_accounts
   	      
-        # increment next_am_index
-        redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
-        
-        # Mail notification
-        #Pony.mail(
-        #  to:       ["jason.gignac@rackspace.com",am_tags[next_am_index][1]], 
-        #  subject:  "[MANAGED] New Account for #{wa.watch_account_type.name}",
-        #  body:     "The account #{self.ddi} has been assigned to the #{wa.watch_account_type.name} tag, via ticket #{self.id} (URL: https://rackspacecloud.zendesk.com/tickets/#{self.id})."
-        #)
-      end
+      # increment next_am_index
+      redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
     end
   end
   
@@ -195,6 +185,7 @@ class Ticket < ActiveRecord::Base
       import_fields_from_zendesk unless @zd_tags
       @zd_tags = (@zd_tags + ["cloud_launch"]).uniq
     end
+    @zd_tags = (@zd_tags + ["cloud_first_ticket"]).uniq unless Ticket.where(organization_id: self.organization_id).size > 1
   end
   
   def import_audits
