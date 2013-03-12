@@ -4,7 +4,6 @@ gem 'zendesk', :git => "git://github.com/zendesk/zendesk_api_client_rb.git", :re
 gem 'activerecord', :require => "active_record"
 gem 'pg'
 gem 'rake'
-gem 'pony'
 gem 'resque'
 gem 'resque-loner'
 gem 'redis-lock'

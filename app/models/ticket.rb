@@ -66,16 +66,6 @@ class Ticket < ActiveRecord::Base
     ticket.import_fields_from_zendesk
     ticket.create_associated_users_and_organization
     
-    # Adding new tags (if the ticket is new, and not closed)
-    if @is_new && add_tags && !(ticket.status == "closed" || ticket.status == "Closed")
-      ticket.apply_watch_accounts
-      ticket.mark_new_accounts
-      ticket.assign_account_manager 
-    end 
-    
-    # Importing and Updating Tags
-    ticket.update_tags
-    
     ticket.save!
     
     # Import audits 
@@ -87,105 +77,6 @@ class Ticket < ActiveRecord::Base
   def ddi
     return nil unless organization
     return organization.name.sub(/^D/, "")
-  end
-
-  def update_tags
-    if @zd_tags
-      #Update Keizan
-      self.tags.destroy_all
-      self.tags = @zd_tags.map { |ztag| (Tag.find_by_name(ztag) || Tag.create(:name => ztag)) }
-      
-      #Update Zendesk
-      if @zdtags_updated
-        zt = CLIENT.tickets.find(self.id)
-        zt.tags = (@zd_tags + zt.tags).map { |tag| tag.downcase }.uniq
-        zt.save
-      end
-    end
-  end
-  
-  def apply_watch_accounts
-    import_fields_from_zendesk unless @zd_tags
-    
-    watch_accounts = WatchAccount.find_all_by_number(self.ddi)
-    watch_accounts.each do |w|
-      # First send notification emails 
-      Pony.mail(
-        to:       w.watch_account_type.notification_emails, 
-        subject:  "[#{w.watch_account_type.name.upcase}] New Ticket for Account ##{self.ddi}",
-        body:     "There has been a new ticket for the account ##{self.ddi} (#{w.name})\n\n\nDate: #{self.created_at}\nTicket Number: #{self.id}\nTicket Subject: #{self.subject}\nURL: https://rackspacecloud.zendesk.com/tickets/#{self.id}"
-      ) if w.watch_account_type.notification_emails
-	    
-	    if w.watch_account_type.default_tags
-  	    @zd_tags = (@zd_tags + w.watch_account_type.default_tags).map { |tag| tag.downcase }.uniq
-  	    @zdtags_updated = true
-  	  end
-    end
-  end
-
-  def assign_account_manager
-    import_fields_from_zendesk unless @zd_tags
-    
-    # We only round robin on 'futurezen' tickets
-    return nil unless @zd_tags.include?("futurezen")
-    
-    am_tags = [
-      ["mc_ampool",""]
-    ]
-
-    assigned_tags = am_tags.map {|t| t[0] } + [
-      "cloud_uk",
-      "smb_marquee",
-      "enterprise_marquee",
-      "zdmover_moved",
-      "mc_ampool",
-      "hybrid_ent",
-      "hybrid_smb",
-      "hybrid_corp",
-      "mc_dcox",
-      "mc_mspenn",
-      "mc_sford",
-      "mc_sgilmore",
-      "mc_bhertzing",
-      "mc_chersh",
-      "mc_nguerrero",
-      "mc_ssanchez",
-      "mc_dbradley",
-      "mc_mamato"
-    ]
-    
-    # We only round robin on tickets that include none of the exception tags listed above
-    return nil if assigned_tags - @zd_tags != assigned_tags
-    
-    #Here, we start the actual round robin assignment
-    raise RuntimeError, "Cannot assign round robin AM on ticket #{self.id} without an organization" unless organization
-    
-    redis = Redis.new
-    
-    unless redis.get("next_am_index")
-      redis.set("next_am_index",0)
-    end
-    
-    redis.lock_for_update("next_am_index") do
-      next_am_index = redis.get("next_am_index").to_i
-      
-      wat = WatchAccountType.where(name: am_tags[next_am_index][0]).first
-      raise RuntimeError, "Trying to assign AM #{am_tags[next_am_index][0]}, but there is no matching WatchAccountType" unless wat
-        
-      wa = WatchAccount.create!(watch_account_type_id: wat.id, number: self.ddi)
-  	  apply_watch_accounts
-  	      
-      # increment next_am_index
-      redis.set("next_am_index",(next_am_index + 1) % am_tags.size)
-    end
-  end
-  
-  def mark_new_accounts
-    if HmdbAccount.find(self.ddi).new_account?
-      import_fields_from_zendesk unless @zd_tags
-      @zd_tags = (@zd_tags + ["cloud_launch"]).uniq
-    end
-    @zd_tags = (@zd_tags + ["cloud_first_ticket"]).uniq unless Ticket.where(organization_id: self.organization_id).size > 1
   end
   
   def import_audits

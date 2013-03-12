@@ -7,8 +7,6 @@ require 'pony'
 require 'resque'
 require 'resque-loner'
 
-require './app/models/hmdb_account'
-
 require './app/models/event'
 require './app/models/comment'
 require './app/models/satisfaction_rating'
@@ -22,6 +20,8 @@ require './app/models/watch_account'
 require './app/models/watch_account_type'
 
 require './app/jobs/ticket_updater'
+
+HMDB::Account.config YAML.load_file("./config/hmdb.yml")
 
 ActiveRecord::Base.record_timestamps = false
 # Connect to the Database
@@ -40,5 +40,3 @@ CLIENT = Zendesk.configure do |config|
   config.log = true
 end
 REDIS = Redis.new
-
-HmdbAccount.configuration = YAML::load(File.open(File.join(File.dirname(__FILE__),'config','hmdb.yml')))
